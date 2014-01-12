@@ -7,96 +7,105 @@
 /*jshint newcap: false */
 /*global React, Utils */
 (function (window) {
-	'use strict';
+  'use strict';
 
-	var ESCAPE_KEY = 27;
-	var ENTER_KEY = 13;
+  var ESCAPE_KEY = 27;
+  var ENTER_KEY = 13;
 
-	window.TodoItem = React.createClass({
-		handleSubmit: function () {
-			var val = this.state.editText.trim();
-			if (val) {
-				this.props.onSave(val);
-				this.setState({editText: val});
-			} else {
-				this.props.onDestroy();
-			}
-			return false;
-		},
+  window.TodoItem = React.createClass({
+    getInitialState: function () {
+      return {
+        editing: false, // not in edit mode upon creating a todo note
+        editText: this.props.todo.get().title
+      };
+    },
 
-		handleEdit: function () {
-			// react optimizes renders by batching them. This means you can't call
-			// parent's `onEdit` (which in this case triggeres a re-render), and
-			// immediately manipulate the DOM as if the rendering's over. Put it as a
-			// callback. Refer to app.js' `edit` method
-			this.props.onEdit(function () {
-				var node = this.refs.editField.getDOMNode();
-				node.focus();
-				node.setSelectionRange(node.value.length, node.value.length);
-			}.bind(this));
-			this.setState({editText: this.props.todo.title});
-		},
+    handleSubmit: function () {
+      var val = this.state.editText.trim();
+      if (val) {
+        this.setState({editText: val});
+        this.setState({editing: false});
+        this.props.todo.lens('title').set(val);
+      } else {
+        this.props.destroy();
+      }
+      return false;
+    },
 
-		handleKeyDown: function (event) {
-			if (event.keyCode === ESCAPE_KEY) {
-				this.setState({editText: this.props.todo.title});
-				this.props.onCancel();
-			} else if (event.keyCode === ENTER_KEY) {
-				this.handleSubmit();
-			}
-		},
+    handleEdit: function () {
+      // react optimizes renders by batching them. This means you can't call
+      // parent's `onEdit` (which in this case triggeres a re-render), and
+      // immediately manipulate the DOM as if the rendering's over. Put it as a
+      // callback. Refer to app.js' `edit` method
+      var node = this.refs.editField.getDOMNode();
+      node.focus();
+      node.setSelectionRange(node.value.length, node.value.length);
+      this.setState({editText: this.props.todo.get().title});
+      this.edit();
+    },
 
-		handleChange: function (event) {
-			this.setState({editText: event.target.value});
-		},
+    handleKeyDown: function (event) {
+      if (event.keyCode === ESCAPE_KEY) {
+        // Revert to what's in the model
+        this.setState({editText: this.props.todo.get().title});
+      } else if (event.keyCode === ENTER_KEY) {
+        this.handleSubmit();
+      }
+    },
 
-		getInitialState: function () {
-			return {editText: this.props.todo.title};
-		},
+    toggleCompleted: function() {
+      this.props.todo.lens('completed').modify(function(e){return !e});
+    },
 
-		/**
-		 * This is a completely optional performance enhancement that you can implement
-		 * on any React component. If you were to delete this method the app would still
-		 * work correctly (and still be very performant!), we just use it as an example
-		 * of how little code it takes to get an order of magnitude performance improvement.
-		 */
-		shouldComponentUpdate: function (nextProps, nextState) {
-			return (
-				nextProps.todo.id !== this.props.todo.id ||
-				nextProps.todo !== this.props.todo ||
-				nextProps.editing !== this.props.editing ||
-				nextState.editText !== this.state.editText
-			);
-		},
+    destroy: function() {
+      this.props.todo.lens('deleted').set(true);
+    },
 
-		render: function () {
-			return (
-				<li className={React.addons.classSet({
-					completed: this.props.todo.completed,
-					editing: this.props.editing
-				})}>
-					<div className="view">
-						<input
-							className="toggle"
-							type="checkbox"
-							checked={this.props.todo.completed ? 'checked' : null}
-							onChange={this.props.onToggle}
-						/>
-						<label onDoubleClick={this.handleEdit}>
-							{this.props.todo.title}
-						</label>
-						<button className="destroy" onClick={this.props.onDestroy} />
-					</div>
-					<input
-						ref="editField"
-						className="edit"
-						value={this.state.editText}
-						onBlur={this.handleSubmit}
-						onChange={this.handleChange}
-						onKeyDown={this.handleKeyDown}
-					/>
-				</li>
-			);
-		}
-	});
+    edit: function () {
+      this.setState({editing: true});
+    },
+
+    save: function (text) {
+      this.props.todo.lens('title').set(text);
+      this.setState({editing: false});
+    },
+
+    cancel: function () {
+      this.setState({editing: false});
+    },
+
+    handleChange: function (event) {
+      this.setState({editText: event.target.value});
+    },
+
+    render: function () {
+      return (
+        <li className={React.addons.classSet({
+          completed: this.props.todo.get().completed,
+          editing: this.state.editing
+        })}>
+          <div className="view">
+            <input
+              className="toggle"
+              type="checkbox"
+              checked={this.props.todo.get().completed ? 'checked' : null}
+              onChange={this.toggleCompleted}
+            />
+            <label onDoubleClick={this.handleEdit}>
+              {this.props.todo.get().title}
+            </label>
+            <button className="destroy" onClick={this.destroy} />
+          </div>
+          <input
+            ref="editField"
+            className="edit"
+            value={this.state.editText}
+            onBlur={this.handleSubmit}
+            onChange={this.handleChange}
+            onKeyDown={this.handleKeyDown}
+          />
+        </li>
+      );
+    }
+  });
 })(window);
